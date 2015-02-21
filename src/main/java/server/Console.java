@@ -2,6 +2,7 @@ package server;
 
 import java.util.Arrays;
 import java.util.Scanner;
+import java.util.StringTokenizer;
 
 /**
  * Ethan Petuchowski 2/20/15
@@ -56,6 +57,15 @@ public class Console implements Runnable {
 
             else if (cmd.equals("broadcast")) {
                 server.broadcast();
+            }
+
+            /* usage e.g: "delay 3 4" creates a 4-second delay to process 3 */
+            else if (cmd.startsWith("delay ")) {
+                StringTokenizer stringTokenizer = new StringTokenizer(cmd, " ");
+                stringTokenizer.nextToken(); // skip word "delay itself
+                int peerNum = Integer.parseInt(stringTokenizer.nextToken());
+                int delaySize = Integer.parseInt(stringTokenizer.nextToken());
+                server.setDelay(peerNum, delaySize);
             }
 
             else {

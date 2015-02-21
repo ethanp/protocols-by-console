@@ -15,6 +15,7 @@ public class BrdcstServer implements Runnable {
 
     public static final int LOW_PORT = 3000;
     public static final String LOCALHOST = "0.0.0.0";
+    public static final int MILLI_SEC = 1_000;
 
     ServerSocket serverSocket;
     ConcurrentHashMap<Integer, Conn> connections = new ConcurrentHashMap<>(5,.9f,3);
@@ -59,9 +60,8 @@ public class BrdcstServer implements Runnable {
 
     public void broadcast() {
         for (Conn conn : connections.values()) {
-            System.out.println("broadcasting to "+conn.instanceNum);
-            conn.writer.println("msg "+next_msg_num());
-            conn.writer.flush();
+            System.out.println("broadcasting to "+conn.processNum);
+            conn.println("msg "+next_msg_num());
         }
     }
 
@@ -69,16 +69,22 @@ public class BrdcstServer implements Runnable {
         return ""+(++msg_num);
     }
 
+    public void setDelay(int peerNum, int delaySize) {
+        connections.get(peerNum).setDelay(delaySize);
+    }
+
     class Conn implements Runnable {
 
         final Socket    socket;
         BufferedReader  reader;
         PrintWriter     writer;
-        final int       instanceNum;
+
+        final int processNum;
+        int delay = 0;
 
         public Conn(Socket socket) {
             this.socket = socket;
-            instanceNum = socket.getPort()-LOW_PORT;
+            processNum = socket.getPort()-LOW_PORT;
             try {
                 reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 writer = new PrintWriter(socket.getOutputStream());
@@ -92,16 +98,38 @@ public class BrdcstServer implements Runnable {
                     String cmd = reader.readLine();
                     if (cmd.startsWith("msg ")) {
                         int msgNum = Integer.parseInt(cmd.substring(cmd.indexOf(' ')+1), cmd.length());
-                        System.out.println("Instance ["+instanceNum+"] received msg num"+msgNum);
-                        System.out.println("Instance ["+instanceNum+"] delivered msg num"+msgNum);
+                        System.out.println("Process ["+processNum+"] received msg num"+msgNum);
+                        System.out.println("Process ["+processNum+"] delivered msg num"+msgNum);
                     }
                     else {
-                        System.err.println("Received unrecognized command from instance: "+instanceNum);
+                        System.err.println("Received unrecognized command from process: "+processNum);
                         System.err.println(cmd);
                     }
                 }
                 catch (IOException e) { e.printStackTrace(); }
             }
         }
+
+        void println(String string) {
+            new Thread(new DelayPrinter(string)).start();
+        }
+
+        class DelayPrinter implements Runnable {
+            String stringToPrint;
+            DelayPrinter(String toPrint) {
+                stringToPrint = toPrint;
+            }
+            @Override public void run() {
+                try {
+                    Thread.sleep(delay * MILLI_SEC);
+                }
+                catch (InterruptedException e) { e.printStackTrace(); }
+                writer.println(stringToPrint);
+                writer.flush();
+            }
+        }
+
+        public int getDelay() { return delay; }
+        public void setDelay(int delay) { this.delay = delay; }
     }
 }
