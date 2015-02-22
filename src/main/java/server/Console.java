@@ -38,20 +38,20 @@ public class Console implements Runnable {
             /* e.g. "connect 1-5" or "connect 3"*/
             if (cmd.startsWith("connect ")) {
 
-                String portStr = cmd.substring(cmd.indexOf(' ')+1, cmd.length());
+                String portStr = Common.afterSpace(cmd);
                 /* connect to range of ports */
                 if (cmd.indexOf('-') > -1) {
                     final int dash = portStr.indexOf('-');
                     int portMin = Integer.parseInt(portStr.substring(0, dash));
-                    int portMax = Integer.parseInt(portStr.substring(dash+1), portStr.length());
+                    int portMax = Integer.parseInt(portStr.substring(dash+1, portStr.length()));
                     for (int i = portMin; i <= portMax; i++)
-                        server.connectToPort(i);
+                        server.connectToServerAtPort(i);
                 }
 
                 /* connect to specific port */
                 else {
                     int portNum = Integer.parseInt(portStr);
-                    server.connectToPort(portNum);
+                    server.connectToServerAtPort(portNum);
                 }
             }
 
@@ -65,7 +65,11 @@ public class Console implements Runnable {
                 stringTokenizer.nextToken(); // skip word "delay itself
                 int peerNum = Integer.parseInt(stringTokenizer.nextToken());
                 int delaySize = Integer.parseInt(stringTokenizer.nextToken());
-                server.setDelay(peerNum, delaySize);
+                if (server.setDelay(peerNum, delaySize)) {
+                    System.out.println("added delay of "+delaySize+" seconds to server "+peerNum);
+                } else {
+                    System.out.println("no delay added");
+                }
             }
 
             else {

@@ -1,11 +1,11 @@
 package server;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -13,17 +13,29 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class BrdcstServer implements Runnable {
 
-    public static final int LOW_PORT = 3000;
-    public static final String LOCALHOST = "0.0.0.0";
-    public static final int MILLI_SEC = 1_000;
-
+    int myId() { return serverSocket.getLocalPort()-Common.LOW_PORT; }
     ServerSocket serverSocket;
     ConcurrentHashMap<Integer, Conn> connections = new ConcurrentHashMap<>(5,.9f,3);
     int msg_num = 0;
 
+    /**
+     * Hash{ portNo : clockValue }
+     */
+    NavigableMap<Integer, Integer> vectorClock = new TreeMap<>();
+
+    /**
+     * This is how we implement Causal Delivery It is based on the description in ["Consistent
+     * Global States", pg. 20] We deliver message m from process p_j as soon as both of the
+     * following conditions are satisfied
+     *
+     * D[j] = TS(m)[j]-1 D[k] ≥ TS(m)[k], forall k≠j
+     */
+
     public BrdcstServer(int portOffset) {
         try {
-            serverSocket = new ServerSocket(LOW_PORT+portOffset);
+            serverSocket = new ServerSocket(Common.LOW_PORT+portOffset);
+            // initialize vector clock with me already inside it
+            vectorClock.put(myId(), 0);
         }
         catch (IOException e) { e.printStackTrace(); }
     }
@@ -33,24 +45,32 @@ public class BrdcstServer implements Runnable {
         while (true) {
             try {
                 Socket socket = serverSocket.accept(); // can't do try-w-r bc it'll close() it
-                addSocketConn(socket);
+                Conn conn = Conn.startWithSocket(socket, this);
+                int userPort = Integer.parseInt(Common.afterSpace(conn.readLine()));
+                conn.setForeignID(userPort);
+                connections.put(userPort, conn);
+                System.out.println("Connected to "+userPort);
             }
             catch (IOException e) { e.printStackTrace(); }
         }
     }
 
-    public void addSocketConn(Socket socket) {
-        Conn conn = new Conn(socket);
-        new Thread(conn).start();
-        final int userPort = socket.getPort()-LOW_PORT;
-        connections.put(userPort, conn);
-        System.out.println("Connected to "+userPort);
-    }
-
-    public void connectToPort(int userPort) {
+    public void connectToServerAtPort(int userPort) {
+        if (userPort == myId()) {
+            System.out.println("surely I needn't connect to myself");
+            return;
+        }
+        if (connections.containsKey(userPort)) {
+            System.err.println("Already connected to "+userPort);
+            return;
+        }
         try {
-            Socket socket = new Socket(LOCALHOST, userPort+LOW_PORT);
-            addSocketConn(socket);
+            Socket socket = new Socket(Common.LOCALHOST, userPort+Common.LOW_PORT);
+            Conn conn = Conn.startWithSocket(socket, this);
+            conn.println("id "+myId());
+            conn.setForeignID(userPort);
+            connections.put(userPort, conn);
+            System.out.println("Connected to "+userPort);
         }
         catch (IOException e) {
             e.printStackTrace();
@@ -59,77 +79,31 @@ public class BrdcstServer implements Runnable {
     }
 
     public void broadcast() {
-        for (Conn conn : connections.values()) {
-            System.out.println("broadcasting to "+conn.processNum);
-            conn.println("msg "+next_msg_num());
+        String msg = "msg "+nextMsg();
+        for (Map.Entry<Integer, Conn> entry : connections.entrySet()) {
+            System.out.println("broadcasting to "+entry.getKey());
+            entry.getValue().println(msg);
         }
     }
 
-    private String next_msg_num() {
-        return ""+(++msg_num);
+    private String nextMsg() {
+        /* TODO this should be a vector clock not just a number
+         * It should get serialized and sent through the socket */
+
+         return ""+(++msg_num);
     }
 
-    public void setDelay(int peerNum, int delaySize) {
+    public boolean setDelay(int peerNum, int delaySize) {
+        if (!connections.containsKey(peerNum)) {
+            System.err.println("Not connected to "+peerNum);
+            return false;
+        }
+        if (delaySize < 0) {
+            System.err.println("Delay size can't be less than zero");
+            return false;
+        }
+
         connections.get(peerNum).setDelay(delaySize);
-    }
-
-    class Conn implements Runnable {
-
-        final Socket    socket;
-        BufferedReader  reader;
-        PrintWriter     writer;
-
-        final int processNum;
-        int delay = 0;
-
-        public Conn(Socket socket) {
-            this.socket = socket;
-            processNum = socket.getPort()-LOW_PORT;
-            try {
-                reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                writer = new PrintWriter(socket.getOutputStream());
-            }
-            catch (IOException e) { e.printStackTrace(); }
-        }
-
-        @Override public void run() {
-            while (true) {
-                try {
-                    String cmd = reader.readLine();
-                    if (cmd.startsWith("msg ")) {
-                        int msgNum = Integer.parseInt(cmd.substring(cmd.indexOf(' ')+1), cmd.length());
-                        System.out.println("Process ["+processNum+"] received msg num"+msgNum);
-                        System.out.println("Process ["+processNum+"] delivered msg num"+msgNum);
-                    }
-                    else {
-                        System.err.println("Received unrecognized command from process: "+processNum);
-                        System.err.println(cmd);
-                    }
-                }
-                catch (IOException e) { e.printStackTrace(); }
-            }
-        }
-
-        void println(String string) {
-            new Thread(new DelayPrinter(string)).start();
-        }
-
-        class DelayPrinter implements Runnable {
-            String stringToPrint;
-            DelayPrinter(String toPrint) {
-                stringToPrint = toPrint;
-            }
-            @Override public void run() {
-                try {
-                    Thread.sleep(delay * MILLI_SEC);
-                }
-                catch (InterruptedException e) { e.printStackTrace(); }
-                writer.println(stringToPrint);
-                writer.flush();
-            }
-        }
-
-        public int getDelay() { return delay; }
-        public void setDelay(int delay) { this.delay = delay; }
+        return true;
     }
 }
