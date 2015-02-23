@@ -19,10 +19,10 @@ public class VectorClock implements Comparable<VectorClock> {
     public String serialize() {
         StringBuilder sb = new StringBuilder();
         int i = 0;
-        int f = map.size()-1;
+        final int f = map.size()-1;
         for (Map.Entry<Integer, Integer> entry : map.entrySet()) {
             sb.append(entry.getKey()+":"+entry.getValue());
-            if (i<f) sb.append(",");
+            if (i++<f) sb.append(",");
         }
         return sb.toString();
     }
@@ -39,14 +39,14 @@ public class VectorClock implements Comparable<VectorClock> {
 
 
     /**
-     * @return a negative integer, zero, or a positive integer as this object is less than,
-     * concurrent to, or greater than the specified object.
+     * @return a negative integer, zero, or a positive integer as this VectorClock is less than,
+     * concurrent to, or greater than the given VectorClock.
      */
     @Override public int compareTo(VectorClock o) {
         boolean isLess = false;
         boolean isMore = false;
         for (Map.Entry<Integer, Integer> entry : map.entrySet()) {
-            int procID = entry.getKey();
+            final int procID = entry.getKey();
             if (o.containsKey(procID)) {
                 if (entry.getValue() < o.get(procID)) {
                     if (isMore) return 0;
@@ -65,6 +65,7 @@ public class VectorClock implements Comparable<VectorClock> {
 
     public void setServer(BrdcstServer server) { this.server = server; }
 
+    /* pass along map operations */
     void incr(int proc)        { map.put(proc, map.get(proc)+1); }
     public void add(int id)    { map.put(id, 0); }
     boolean containsKey(int a) { return map.containsKey(a); }
@@ -73,17 +74,22 @@ public class VectorClock implements Comparable<VectorClock> {
     public void remove(int id) { map.remove(id); }
     private int size()         { return map.size(); }
 
-    public static boolean shouldDeliver(VectorClock receivedVC, VectorClock myVC, int procID) {
-        if (receivedVC.size() != myVC.size()) {
+    public boolean shouldDeliver(VectorClock receivedVC, int procID) {
+        if (receivedVC.size() != this.size()) {
             System.err.println("Can't deliver, network is not completely connected");
         }
         for (Entry e : receivedVC.entrySet()) {
-            if (!myVC.containsKey(e.procID)) {
+            if (!this.containsKey(e.procID)) {
                 System.err.println("Can't deliver, network is not completely connected");
             }
-            final int myCount = myVC.get(e.procID);
+            final int myCount = this.get(e.procID);
             if (e.procID == procID) {
-                if (myCount != e.count-1) {
+                if (procID == server.myId()) {
+                    if (myCount != e.count) {
+                        return false;
+                    }
+                }
+                else if (myCount != e.count-1) {
                     return false;
                 }
             }
@@ -94,6 +100,8 @@ public class VectorClock implements Comparable<VectorClock> {
 
         return true;
     }
+
+    @Override public String toString() { return "{"+this.serialize()+"}"; }
 
     private NavigableSet<Entry> entrySet() {
         NavigableSet<Entry> toRet = new TreeSet<>();
@@ -116,8 +124,7 @@ public class VectorClock implements Comparable<VectorClock> {
             else return count-o.count;
         }
 
-        @Override
-        public boolean equals(Object o) {
+        @Override public boolean equals(Object o) {
             if (this == o) return true;
             if (!(o instanceof Entry)) return false;
             Entry entry = (Entry) o;
@@ -126,8 +133,7 @@ public class VectorClock implements Comparable<VectorClock> {
             return true;
         }
 
-        @Override
-        public int hashCode() {
+        @Override public int hashCode() {
             int result = procID;
             result = 31*result+count;
             return result;

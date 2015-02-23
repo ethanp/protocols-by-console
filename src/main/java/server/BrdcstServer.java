@@ -14,13 +14,20 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Ethan Petuchowski 2/20/15
+ *
+ * This is how we implement Causal Delivery. It is based on the description in ["Consistent
+ * Global States", pg. 20]. We deliver message m from process p_j as soon as both of the
+ * following conditions are satisfied
+ *
+ * myVC[j] = rcvdVC[j]-1
+ *          &&
+ * myVC[k] ≥ rcvdVC[k], forall k≠j
  */
 public class BrdcstServer implements Runnable {
 
     int myId() { return serverSocket.getLocalPort()-Common.LOW_PORT; }
     ServerSocket serverSocket;
     ConcurrentHashMap<Integer, Conn> connections = new ConcurrentHashMap<>(5,.9f,3);
-    int msg_num = 0;
     NavigableMap<VectorClock, Integer> msgBacklog = new TreeMap<>();
 
     /**
@@ -28,20 +35,12 @@ public class BrdcstServer implements Runnable {
      */
     VectorClock myVC = new VectorClock();
 
-    /**
-     * This is how we implement Causal Delivery. It is based on the description in ["Consistent
-     * Global States", pg. 20]. We deliver message m from process p_j as soon as both of the
-     * following conditions are satisfied
-     *
-     * D[j] = TS(m)[j]-1 D[k] ≥ TS(m)[k], forall k≠j
-     */
-
     public BrdcstServer(int portOffset) {
         try {
             serverSocket = new ServerSocket(Common.LOW_PORT+portOffset);
         }
         catch (BindException e) {
-            System.err.println("Address already in use");
+            System.err.println("Address already in use, please restart.");
             System.exit(1);
         }
         catch (IOException e) { e.printStackTrace(); System.exit(1); }
@@ -103,11 +102,18 @@ public class BrdcstServer implements Runnable {
     }
 
     public void broadcast() {
+        /* create message to broadcast */
         String msg = "msg "+serializedIncrementedVectorClock();
+
+        /* broadcast to everyone else */
         for (Map.Entry<Integer, Conn> entry : connections.entrySet()) {
             System.out.println("broadcasting to "+entry.getKey());
             entry.getValue().println(msg);
         }
+
+        /* also broadcast to self */
+        System.out.println("Received msg w VC "+myVC+" from ["+myId()+"]");
+        rcvMsg(myVC, myId());
     }
 
     /** increments THIS process's vector clock [only] */
@@ -134,16 +140,16 @@ public class BrdcstServer implements Runnable {
         for (Map.Entry<VectorClock, Integer> entry : msgBacklog.entrySet()) {
             VectorClock qVC = entry.getKey();
             final int procID = entry.getValue();
-            if (VectorClock.shouldDeliver(qVC, getMyVC(), procID)) {
+            if (myVC.shouldDeliver(qVC, procID)) {
                 final int msgNum = qVC.get(procID);
                 toRem.add(qVC);
-                System.out.println("Delivered msg num ["+msgNum+"] from ["+procID+"]");
+                System.out.println("Delivered msg w VC "+qVC+" from ["+procID+"]");
                 getMyVC().put(procID, msgNum);
             }
         }
         toRem.forEach(msgBacklog::remove);
         if (msgBacklog.size() == 0) {
-            System.out.println("All received messages have been delivered");
+            System.out.println("All received messages have been delivered -- groovy");
         }
     }
 

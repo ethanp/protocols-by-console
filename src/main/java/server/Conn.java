@@ -59,8 +59,7 @@ class Conn implements Runnable {
 
     private void receiveMessage(String cmd) {
         VectorClock rcvdVC = VectorClock.deserialize(afterSpace(cmd));
-        int msgN = rcvdVC.get(foreignID);
-        System.out.println("Received msg num ["+msgN+"] from ["+foreignID+"]");
+        System.out.println("Received msg w VC "+rcvdVC+" from ["+foreignID+"]");
         brdcstServer.rcvMsg(rcvdVC, foreignID);
     }
 
