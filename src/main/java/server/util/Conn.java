@@ -1,4 +1,6 @@
-package server;
+package server.util;
+
+import server.base.BaseServer;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -6,21 +8,21 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-import static server.Common.afterSpace;
+import static server.util.Common.afterSpace;
 
 /**
 * Ethan Petuchowski 2/22/15
 */
-class Conn implements Runnable {
+public class Conn implements Runnable {
 
     private final Socket socket;
     private BufferedReader reader;
     private PrintWriter writer;
-    private final BrdcstServer brdcstServer;
+    private final BaseServer brdcstServer;
     private int foreignID = -1;
     private int delay = 0;
 
-    public Conn(Socket socket, BrdcstServer brdcstServer) {
+    public Conn(Socket socket, BaseServer brdcstServer) {
         this.socket = socket;
         this.brdcstServer = brdcstServer;
         try {
@@ -30,7 +32,7 @@ class Conn implements Runnable {
         catch (IOException e) { e.printStackTrace(); }
     }
 
-    public static Conn startWithSocket(Socket socket, BrdcstServer brdcstServer) {
+    public static Conn startWithSocket(Socket socket, BaseServer brdcstServer) {
         Conn conn = new Conn(socket, brdcstServer);
         new Thread(conn).start();
         return conn;
@@ -63,7 +65,7 @@ class Conn implements Runnable {
         brdcstServer.rcvMsg(rcvdVC, foreignID);
     }
 
-    String readLine() {
+    public String readLine() {
         try {
             return reader.readLine();
         }
@@ -88,7 +90,7 @@ class Conn implements Runnable {
         }
     }
 
-    void println(String string)     { new Thread(new DelayPrinter(string)).start(); }
+    public void println(String string)     { new Thread(new DelayPrinter(string)).start(); }
     public void setForeignID(int i) { foreignID = i; }
     public int getDelay()           { return delay; }
     public void setDelay(int delay) { this.delay = delay; }

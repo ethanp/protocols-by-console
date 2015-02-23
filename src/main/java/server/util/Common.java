@@ -1,4 +1,4 @@
-package server;
+package server.util;
 
 /**
  * Ethan Petuchowski 2/22/15

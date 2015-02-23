@@ -1,4 +1,6 @@
-package server;
+package server.util;
+
+import server.broadcast.BrdcstServer;
 
 import java.util.Map;
 import java.util.NavigableMap;
@@ -66,13 +68,13 @@ public class VectorClock implements Comparable<VectorClock> {
     public void setServer(BrdcstServer server) { this.server = server; }
 
     /* pass along map operations */
-    void incr(int proc)        { map.put(proc, map.get(proc)+1); }
-    public void add(int id)    { map.put(id, 0); }
-    boolean containsKey(int a) { return map.containsKey(a); }
-    int get(int a)             { return map.get(a);         }
-    void put(int a, int b)     { map.put(a, b);             }
-    public void remove(int id) { map.remove(id); }
-    private int size()         { return map.size(); }
+    public void     incr(int proc)      { map.put(proc, map.get(proc)+1); }
+    public void     add(int id)         { map.put(id, 0); }
+    public boolean  containsKey(int a)  { return map.containsKey(a); }
+    public int      get(int a)          { return map.get(a); }
+    public void     put(int a, int b)   { map.put(a, b); }
+    public void     remove(int id)      { map.remove(id); }
+    public int      size()              { return map.size(); }
 
     public boolean shouldDeliver(VectorClock receivedVC, int procID) {
         if (receivedVC.size() != this.size()) {
