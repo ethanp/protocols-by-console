@@ -1,6 +1,7 @@
 package server;
 
 import java.io.IOException;
+import java.net.BindException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -25,7 +26,7 @@ public class BrdcstServer implements Runnable {
     /**
      * Hash{ portNo : clockValue }
      */
-    VectorClock myVectorClock = new VectorClock();
+    VectorClock myVC = new VectorClock();
 
     /**
      * This is how we implement Causal Delivery. It is based on the description in ["Consistent
@@ -38,9 +39,12 @@ public class BrdcstServer implements Runnable {
     public BrdcstServer(int portOffset) {
         try {
             serverSocket = new ServerSocket(Common.LOW_PORT+portOffset);
-            // initialize vector clock with me already inside it
         }
-        catch (IOException e) { e.printStackTrace(); }
+        catch (BindException e) {
+            System.err.println("Address already in use");
+            System.exit(1);
+        }
+        catch (IOException e) { e.printStackTrace(); System.exit(1); }
     }
 
     @Override public void run() {
@@ -53,6 +57,7 @@ public class BrdcstServer implements Runnable {
                 int userPort = Integer.parseInt(Common.afterSpace(conn.readLine()));
                 conn.setForeignID(userPort);
                 connections.put(userPort, conn);
+                getMyVC().put(userPort, 0);
                 System.out.println("Connected to "+userPort);
             }
             catch (IOException e) { e.printStackTrace(); }
@@ -60,8 +65,8 @@ public class BrdcstServer implements Runnable {
     }
 
     private void initVectorClock() {
-        myVectorClock.setServer(this);
-        myVectorClock.add(myId());
+        myVC.setServer(this);
+        myVC.add(myId());
     }
 
     public void connectToServerAtPort(int userPort) {
@@ -92,6 +97,7 @@ public class BrdcstServer implements Runnable {
         conn.println("id "+myId());
         conn.setForeignID(userPort);
         connections.put(userPort, conn);
+        getMyVC().put(userPort, 0);
         System.out.println("Connected to "+userPort);
 
     }
@@ -106,8 +112,8 @@ public class BrdcstServer implements Runnable {
 
     /** increments THIS process's vector clock [only] */
     private String serializedIncrementedVectorClock() {
-        myVectorClock.incr(myId());
-        return myVectorClock.serialize();
+        myVC.incr(myId());
+        return myVC.serialize();
     }
 
     public boolean setDelay(int peerNum, int delaySize) {
@@ -128,19 +134,28 @@ public class BrdcstServer implements Runnable {
         for (Map.Entry<VectorClock, Integer> entry : msgBacklog.entrySet()) {
             VectorClock qVC = entry.getKey();
             final int procID = entry.getValue();
-            final int valueForProc = qVC.get(procID);
-            if (getMyVectorClock().get(procID) == valueForProc-1) {
+            if (VectorClock.shouldDeliver(qVC, getMyVC(), procID)) {
+                final int msgNum = qVC.get(procID);
                 toRem.add(qVC);
-                System.out.println("Delivered msg num ["+valueForProc+"] from ["+procID+"]");
-                getMyVectorClock().put(procID, valueForProc);
+                System.out.println("Delivered msg num ["+msgNum+"] from ["+procID+"]");
+                getMyVC().put(procID, msgNum);
             }
         }
         toRem.forEach(msgBacklog::remove);
+        if (msgBacklog.size() == 0) {
+            System.out.println("All received messages have been delivered");
+        }
     }
 
-    public VectorClock getMyVectorClock()            { return myVectorClock; }
+    public VectorClock getMyVC() { return myVC; }
+
     public void rcvMsg(VectorClock vc, int procID) {
         msgBacklog.put(vc, procID);
         deliverEverythingPossible();
+    }
+
+    public void removeConn(int procID) {
+        connections.remove(procID);
+        myVC.remove(procID);
     }
 }

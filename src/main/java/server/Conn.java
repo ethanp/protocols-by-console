@@ -13,14 +13,12 @@ import static server.Common.afterSpace;
 */
 class Conn implements Runnable {
 
-    final Socket socket;
+    private final Socket socket;
     private BufferedReader reader;
     private PrintWriter writer;
-    final BrdcstServer brdcstServer;
-
-    int foreignID = -1;
-    int delay = 0;
-    int lastMsgDlvrd = 0;
+    private final BrdcstServer brdcstServer;
+    private int foreignID = -1;
+    private int delay = 0;
 
     public Conn(Socket socket, BrdcstServer brdcstServer) {
         this.socket = socket;
@@ -45,6 +43,7 @@ class Conn implements Runnable {
 
                 if (cmd == null) {
                     System.out.println("Connection to ["+foreignID+"] closed");
+                    brdcstServer.removeConn(foreignID);
                     return;
                 }
 

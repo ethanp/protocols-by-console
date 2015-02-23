@@ -2,7 +2,10 @@ package server;
 
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.NavigableSet;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * Ethan Petuchowski 2/22/15
@@ -67,4 +70,67 @@ public class VectorClock implements Comparable<VectorClock> {
     boolean containsKey(int a) { return map.containsKey(a); }
     int get(int a)             { return map.get(a);         }
     void put(int a, int b)     { map.put(a, b);             }
+    public void remove(int id) { map.remove(id); }
+    private int size()         { return map.size(); }
+
+    public static boolean shouldDeliver(VectorClock receivedVC, VectorClock myVC, int procID) {
+        if (receivedVC.size() != myVC.size()) {
+            System.err.println("Can't deliver, network is not completely connected");
+        }
+        for (Entry e : receivedVC.entrySet()) {
+            if (!myVC.containsKey(e.procID)) {
+                System.err.println("Can't deliver, network is not completely connected");
+            }
+            final int myCount = myVC.get(e.procID);
+            if (e.procID == procID) {
+                if (myCount != e.count-1) {
+                    return false;
+                }
+            }
+            else if (myCount < e.count) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private NavigableSet<Entry> entrySet() {
+        NavigableSet<Entry> toRet = new TreeSet<>();
+        final Set<Map.Entry<Integer, Integer>> entries = map.entrySet();
+        for (Map.Entry<Integer, Integer> entry : entries)
+            toRet.add(new Entry(entry.getKey(), entry.getValue()));
+        return toRet;
+    }
+
+    class Entry implements Comparable<Entry> {
+        final int procID;
+        final int count;
+        public Entry(int procID, int count) {
+            this.procID = procID;
+            this.count = count;
+        }
+
+        @Override public int compareTo(Entry o) {
+            if (procID != o.procID) return procID-o.procID;
+            else return count-o.count;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Entry)) return false;
+            Entry entry = (Entry) o;
+            if (count != entry.count) return false;
+            if (procID != entry.procID) return false;
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = procID;
+            result = 31*result+count;
+            return result;
+        }
+    }
 }

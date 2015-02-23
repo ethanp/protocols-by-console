@@ -36,7 +36,7 @@ public class Console implements Runnable {
         return port;
     }
 
-    Scanner scanner = new Scanner(System.in);
+    static Scanner scanner = new Scanner(System.in);
     BrdcstServer server;
 
     public Console(int portOffset) {
@@ -88,11 +88,11 @@ public class Console implements Runnable {
         }
     }
 
-    private String prompt() {
+    public static String prompt() {
         return prompt("#$> ");
     }
 
-    private String prompt(String promptString) {
+    private static String prompt(String promptString) {
         System.out.print(promptString);
         String userInput = scanner.nextLine();
         return userInput;
