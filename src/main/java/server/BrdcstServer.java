@@ -3,6 +3,9 @@ package server;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
@@ -17,15 +20,16 @@ public class BrdcstServer implements Runnable {
     ServerSocket serverSocket;
     ConcurrentHashMap<Integer, Conn> connections = new ConcurrentHashMap<>(5,.9f,3);
     int msg_num = 0;
+    NavigableMap<VectorClock, Integer> msgBacklog = new TreeMap<>();
 
     /**
      * Hash{ portNo : clockValue }
      */
-    NavigableMap<Integer, Integer> vectorClock = new TreeMap<>();
+    VectorClock myVectorClock = new VectorClock();
 
     /**
-     * This is how we implement Causal Delivery It is based on the description in ["Consistent
-     * Global States", pg. 20] We deliver message m from process p_j as soon as both of the
+     * This is how we implement Causal Delivery. It is based on the description in ["Consistent
+     * Global States", pg. 20]. We deliver message m from process p_j as soon as both of the
      * following conditions are satisfied
      *
      * D[j] = TS(m)[j]-1 D[k] ≥ TS(m)[k], forall k≠j
@@ -35,12 +39,12 @@ public class BrdcstServer implements Runnable {
         try {
             serverSocket = new ServerSocket(Common.LOW_PORT+portOffset);
             // initialize vector clock with me already inside it
-            vectorClock.put(myId(), 0);
         }
         catch (IOException e) { e.printStackTrace(); }
     }
 
     @Override public void run() {
+        initVectorClock();
         System.out.println("Listening on port "+serverSocket.getLocalPort());
         while (true) {
             try {
@@ -55,6 +59,11 @@ public class BrdcstServer implements Runnable {
         }
     }
 
+    private void initVectorClock() {
+        myVectorClock.setServer(this);
+        myVectorClock.add(myId());
+    }
+
     public void connectToServerAtPort(int userPort) {
         if (userPort == myId()) {
             System.out.println("surely I needn't connect to myself");
@@ -64,33 +73,41 @@ public class BrdcstServer implements Runnable {
             System.err.println("Already connected to "+userPort);
             return;
         }
+
+        Socket socket;
         try {
-            Socket socket = new Socket(Common.LOCALHOST, userPort+Common.LOW_PORT);
-            Conn conn = Conn.startWithSocket(socket, this);
-            conn.println("id "+myId());
-            conn.setForeignID(userPort);
-            connections.put(userPort, conn);
-            System.out.println("Connected to "+userPort);
+            socket = new Socket(Common.LOCALHOST, userPort+Common.LOW_PORT);
+        }
+        catch (UnknownHostException e) {
+            System.err.println("Couldn't connect to "+userPort+", Unknown Host Exception");
+            System.err.println(e.getMessage());
+            return;
         }
         catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("Couldn't connect to "+userPort+", I/O Exception");
+            System.err.println(e.getMessage());
+            return;
         }
+        Conn conn = Conn.startWithSocket(socket, this);
+        conn.println("id "+myId());
+        conn.setForeignID(userPort);
+        connections.put(userPort, conn);
+        System.out.println("Connected to "+userPort);
 
     }
 
     public void broadcast() {
-        String msg = "msg "+nextMsg();
+        String msg = "msg "+serializedIncrementedVectorClock();
         for (Map.Entry<Integer, Conn> entry : connections.entrySet()) {
             System.out.println("broadcasting to "+entry.getKey());
             entry.getValue().println(msg);
         }
     }
 
-    private String nextMsg() {
-        /* TODO this should be a vector clock not just a number
-         * It should get serialized and sent through the socket */
-
-         return ""+(++msg_num);
+    /** increments THIS process's vector clock [only] */
+    private String serializedIncrementedVectorClock() {
+        myVectorClock.incr(myId());
+        return myVectorClock.serialize();
     }
 
     public boolean setDelay(int peerNum, int delaySize) {
@@ -102,8 +119,28 @@ public class BrdcstServer implements Runnable {
             System.err.println("Delay size can't be less than zero");
             return false;
         }
-
         connections.get(peerNum).setDelay(delaySize);
         return true;
+    }
+
+    void deliverEverythingPossible() {
+        Collection<VectorClock> toRem = new ArrayList<>();
+        for (Map.Entry<VectorClock, Integer> entry : msgBacklog.entrySet()) {
+            VectorClock qVC = entry.getKey();
+            final int procID = entry.getValue();
+            final int valueForProc = qVC.get(procID);
+            if (getMyVectorClock().get(procID) == valueForProc-1) {
+                toRem.add(qVC);
+                System.out.println("Delivered msg num ["+valueForProc+"] from ["+procID+"]");
+                getMyVectorClock().put(procID, valueForProc);
+            }
+        }
+        toRem.forEach(msgBacklog::remove);
+    }
+
+    public VectorClock getMyVectorClock()            { return myVectorClock; }
+    public void rcvMsg(VectorClock vc, int procID) {
+        msgBacklog.put(vc, procID);
+        deliverEverythingPossible();
     }
 }
