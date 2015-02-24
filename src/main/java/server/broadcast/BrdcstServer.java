@@ -1,13 +1,12 @@
 package server.broadcast;
 
 import server.base.BaseServer;
-import server.util.Common;
-import server.util.Conn;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import server.time.VectorClock;
 
-import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -21,57 +20,66 @@ import java.util.Map;
  *          &&
  * myVC[k] ≥ rcvdVC[k], forall k≠j
  */
-public class BrdcstServer extends BaseServer {
+public class BrdcstServer extends BaseServer<BrdcstConn> {
 
-    public BrdcstServer(ServerSocket socket) {
-        super(socket);
+    public BrdcstServer(ServerSocket socket) { super(socket); }
+
+    @Override protected BrdcstConn createConn(Socket socket, BaseServer server) {
+        return BrdcstConn.startWithSocket(socket, (BrdcstServer) server);
     }
 
-    @Override public void run() {
-        initVectorClock();
-        System.out.println("Listening on port "+serverSocket.getLocalPort());
-        while (true) {
-            try {
-                Socket socket = serverSocket.accept(); // can't do try-w-r bc it'll close() it
-                Conn conn = Conn.startWithSocket(socket, this);
-                int userPort = Integer.parseInt(Common.afterSpace(conn.readLine()));
-                conn.setForeignID(userPort);
-                connections.put(userPort, conn);
-                getMyVC().put(userPort, 0);
-                System.out.println("Connected to "+userPort);
+    @Override protected void addConnection(Socket socket, int userPort) {
+        BrdcstConn conn = BrdcstConn.startWithSocket(socket, this);
+        conn.println("id "+myId());
+        conn.setForeignID(userPort);
+        connections.put(userPort, conn);
+        getDeliveredClock().put(userPort, 0);
+        System.out.println("Connected to "+userPort);
+    }
+
+    @Override protected void deliverEverythingPossible() {
+        Collection<VectorClock> toRem = new ArrayList<>();
+        for (Map.Entry<VectorClock, Integer> entry : msgBacklog.entrySet()) {
+            VectorClock qVC = entry.getKey();
+            final int procID = entry.getValue();
+            if (deliveredClock.shouldDeliver(qVC, procID)) {
+                final int msgNum = qVC.get(procID);
+                toRem.add(qVC);
+                System.out.println("Delivered msg w VC "+qVC+" from ["+procID+"]");
+                getDeliveredClock().put(procID, msgNum);
             }
-            catch (IOException e) { e.printStackTrace(); }
+        }
+        toRem.forEach(msgBacklog::remove);
+        if (msgBacklog.size() == 0) {
+            System.out.println("All received messages have been delivered -- groovy");
         }
     }
 
-    private void initVectorClock() {
-        getMyVC().setServer(this);
-        getMyVC().add(myId());
-    }
-
+    /**
+     * Increments element representing this process in the "delivered-clock",
+     * And sends the clock to all known peers
+     */
     public void broadcast() {
         /* create message to broadcast */
         String msg = "msg "+serializedIncrementedVectorClock();
 
         /* broadcast to everyone else */
-        for (Map.Entry<Integer, Conn> entry : connections.entrySet()) {
+        for (Map.Entry<Integer, BrdcstConn> entry : connections.entrySet()) {
             System.out.println("broadcasting to "+entry.getKey());
             entry.getValue().println(msg);
         }
 
         /* also broadcast to self */
-        System.out.println("Received msg w VC "+getMyVC()+" from ["+myId()+"]");
-        rcvMsg(getMyVC(), myId());
+        System.out.println("Received msg w VC "+getDeliveredClock()+" from ["+myId()+"]");
+        rcvMsg(getDeliveredClock(), myId());
     }
 
-    /** increments THIS process's vector clock [only] */
+    /**
+     * Called by broadcast(),
+     * Increments THIS process in the delivered-clock [only]
+     */
     private String serializedIncrementedVectorClock() {
-        getMyVC().incr(myId());
-        return getMyVC().serialize();
-    }
-
-    public void send(int dest) {
-        // TODO send
-        throw new NotImplementedException();
+        getDeliveredClock().incr(myId());
+        return getDeliveredClock().serialize();
     }
 }

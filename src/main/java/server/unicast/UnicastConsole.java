@@ -1,24 +1,28 @@
 package server.unicast;
 
-import server.base.Console;
+import server.base.BaseConsole;
 import server.util.Common;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.net.ServerSocket;
 
 /**
  * Ethan Petuchowski 2/23/15
  */
-public class UnicastConsole extends Console<UnicastServer> {
+public class UnicastConsole extends BaseConsole<UnicastServer> {
 
     public UnicastConsole(ServerSocket socket) {
         super(new UnicastServer(socket));
     }
 
-    /**
-     * "connect 1-5" or "connect 3" "delay 3 4" creates a 4-second delay to process 3
-     */
-    @Override public void run() {throw new NotImplementedException();}
+    public static void main(String[] args) {
+        ServerSocket serverSocket = reqSocket();
+        final UnicastConsole brdcstConsole = new UnicastConsole(serverSocket);
+        new Thread(brdcstConsole).start();
+    }
+
+    @Override protected void executeBroadcast(String cmd) {
+        System.err.println("The \"Unicast Server\" has no ability to \"broadcast\"");
+    }
 
     protected void executeSend(String cmd) {
         int dest;

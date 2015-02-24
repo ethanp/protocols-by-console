@@ -1,13 +1,13 @@
 package server.broadcast;
 
-import server.base.Console;
+import server.base.BaseConsole;
 
 import java.net.ServerSocket;
 
 /**
  * Ethan Petuchowski 2/23/15
  */
-public class BrdcstConsole extends Console<BrdcstServer> {
+public class BrdcstConsole extends BaseConsole<BrdcstServer> {
     public BrdcstConsole(ServerSocket socket) {
         super(new BrdcstServer(socket));
     }
@@ -18,18 +18,7 @@ public class BrdcstConsole extends Console<BrdcstServer> {
         new Thread(brdcstConsole).start();
     }
 
-    @Override public void run() {
-        while (true) {
-            String cmd = prompt();
-            if (cmd.startsWith("connect ")) executeConnect(cmd);
-            else if (cmd.equals("broadcast")) executeBroadcast(cmd);
-            else if (cmd.startsWith("delay ")) executeDelay(cmd);
-            else if (cmd.startsWith("send ")) executeSend(cmd);
-            else System.err.println("Unrecognized command: "+cmd);
-        }
-    }
-
-    private void executeBroadcast(String cmd) {
+    @Override protected void executeBroadcast(String cmd) {
         server.broadcast();
     }
 

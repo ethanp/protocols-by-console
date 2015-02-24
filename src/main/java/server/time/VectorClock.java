@@ -1,6 +1,6 @@
-package server.util;
+package server.time;
 
-import server.broadcast.BrdcstServer;
+import server.base.BaseServer;
 
 import java.util.Map;
 import java.util.NavigableMap;
@@ -12,13 +12,13 @@ import java.util.TreeSet;
 /**
  * Ethan Petuchowski 2/22/15
  */
-public class VectorClock implements Comparable<VectorClock> {
+public class VectorClock extends Timestamp {
 
     /** Map<ProcID, Causal-Count>*/
     NavigableMap<Integer, Integer> map = new TreeMap<>();
-    private BrdcstServer server;
+    private BaseServer server;
 
-    public String serialize() {
+    @Override public String serialize() {
         StringBuilder sb = new StringBuilder();
         int i = 0;
         final int f = map.size()-1;
@@ -44,7 +44,8 @@ public class VectorClock implements Comparable<VectorClock> {
      * @return a negative integer, zero, or a positive integer as this VectorClock is less than,
      * concurrent to, or greater than the given VectorClock.
      */
-    @Override public int compareTo(VectorClock o) {
+    @Override public int compareTo(Timestamp a) {
+        VectorClock o = (VectorClock) a;
         boolean isLess = false;
         boolean isMore = false;
         for (Map.Entry<Integer, Integer> entry : map.entrySet()) {
@@ -65,7 +66,7 @@ public class VectorClock implements Comparable<VectorClock> {
              : 0;
     }
 
-    public void setServer(BrdcstServer server) { this.server = server; }
+    public void setServer(BaseServer server) { this.server = server; }
 
     /* pass along map operations */
     public void     incr(int proc)      { map.put(proc, map.get(proc)+1); }

@@ -10,7 +10,7 @@ import java.util.Scanner;
 /**
  * Ethan Petuchowski 2/20/15
  */
-public abstract class Console<Server extends BaseServer> implements Runnable {
+public abstract class BaseConsole<Server extends BaseServer> implements Runnable {
 
     /****** STATIC SECTION ******/
 
@@ -58,16 +58,23 @@ public abstract class Console<Server extends BaseServer> implements Runnable {
 
     protected Server server;
 
-    public Console(Server server) {
+    public BaseConsole(Server server) {
         this.server = server;
         new Thread(server).start();
     }
 
-    /**
-     * "connect 1-5" or "connect 3"
-     * "delay 3 4" creates a 4-second delay to process 3
-     */
-    @Override public abstract void run();
+    @Override public void run() {
+        while (true) {
+            String cmd = prompt();
+            if (cmd.startsWith("connect ")) executeConnect(cmd);
+            else if (cmd.equals("broadcast")) executeBroadcast(cmd);
+            else if (cmd.startsWith("delay ")) executeDelay(cmd);
+            else if (cmd.startsWith("send ")) executeSend(cmd);
+            else System.err.println("Unrecognized command: "+cmd);
+        }
+    }
+
+    protected abstract void executeBroadcast(String cmd);
 
     /**
      * an extension of vector clocks where each message carries a timestamp

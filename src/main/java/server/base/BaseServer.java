@@ -1,16 +1,12 @@
 package server.base;
 
+import server.time.VectorClock;
 import server.util.Common;
-import server.util.Conn;
-import server.util.VectorClock;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,26 +14,47 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Ethan Petuchowski 2/23/15
  */
-public class BaseServer implements Runnable {
-    NavigableMap<VectorClock, Integer> msgBacklog = new TreeMap<>();
-    /**
-     * Hash{ portNo : clockValue }
-     */
-    VectorClock myVC = new VectorClock();
+public abstract class BaseServer<Conn extends BaseConn> implements Runnable {
 
-    public int myId() { return serverSocket.getLocalPort()-Common.LOW_PORT; }
+    public BaseServer(ServerSocket serverSocket) { this.serverSocket = serverSocket; }
+
+    /* Fields */
     protected ServerSocket serverSocket;
     protected ConcurrentHashMap<Integer, Conn> connections = new ConcurrentHashMap<>(5,.9f,3);
+    public int myId() { return serverSocket.getLocalPort()-Common.LOW_PORT; }
+    protected VectorClock deliveredClock = new VectorClock();
+    protected NavigableMap<VectorClock, Integer> msgBacklog = new TreeMap<>();
 
-    public BaseServer(ServerSocket serverSocket) {
-        this.serverSocket = serverSocket;
+    /* Must be Overridden */
+    protected abstract void deliverEverythingPossible();
+    protected abstract Conn createConn(Socket socket, BaseServer server);
+    protected abstract void addConnection(Socket socket, int userPort);
+
+    /* Must be Extended */
+        /* NONE */
+
+    /* Utility Functions */
+    public boolean isConnectedTo(int destination) { return connections.containsKey(destination); }
+
+    protected void acceptConnections() {
+        try {
+            Socket socket = serverSocket.accept(); // can't do try-w-r bc it'll close() it
+            Conn conn = createConn(socket, this);
+            int userPort = Integer.parseInt(Common.afterSpace(conn.readLine()));
+            conn.setForeignID(userPort);
+            connections.put(userPort, conn);
+            getDeliveredClock().put(userPort, 0);
+            System.out.println("Connected to "+userPort);
+        }
+        catch (IOException e) { e.printStackTrace(); }
     }
 
-    @Override public void run() {}
-
-    public boolean isConnectedTo(int destination) {
-        return connections.containsKey(destination);
+    @Override public void run() {
+        initDeliveredClock();
+        System.out.println("Listening on port "+serverSocket.getLocalPort());
+        while (true) acceptConnections();
     }
+
 
     public boolean setDelay(int peerNum, int delaySize) {
         if (!isConnectedTo(peerNum)) {
@@ -76,42 +93,24 @@ public class BaseServer implements Runnable {
             System.err.println(e.getMessage());
             return;
         }
-        Conn conn = Conn.startWithSocket(socket, this);
-        conn.println("id "+myId());
-        conn.setForeignID(userPort);
-        connections.put(userPort, conn);
-        getMyVC().put(userPort, 0);
-        System.out.println("Connected to "+userPort);
-
+        addConnection(socket, userPort);
     }
+
 
     public void removeConn(int procID) {
         connections.remove(procID);
-        myVC.remove(procID);
+        deliveredClock.remove(procID);
     }
 
-    void deliverEverythingPossible() {
-        Collection<VectorClock> toRem = new ArrayList<>();
-        for (Map.Entry<VectorClock, Integer> entry : msgBacklog.entrySet()) {
-            VectorClock qVC = entry.getKey();
-            final int procID = entry.getValue();
-            if (myVC.shouldDeliver(qVC, procID)) {
-                final int msgNum = qVC.get(procID);
-                toRem.add(qVC);
-                System.out.println("Delivered msg w VC "+qVC+" from ["+procID+"]");
-                getMyVC().put(procID, msgNum);
-            }
-        }
-        toRem.forEach(msgBacklog::remove);
-        if (msgBacklog.size() == 0) {
-            System.out.println("All received messages have been delivered -- groovy");
-        }
-    }
-
-    public VectorClock getMyVC() { return myVC; }
+    public VectorClock getDeliveredClock() { return deliveredClock; }
 
     public void rcvMsg(VectorClock vc, int procID) {
         msgBacklog.put(vc, procID);
         deliverEverythingPossible();
+    }
+
+    private void initDeliveredClock() {
+        getDeliveredClock().setServer(this);
+        getDeliveredClock().add(myId());
     }
 }
