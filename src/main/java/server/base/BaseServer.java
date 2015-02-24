@@ -44,7 +44,7 @@ public abstract class BaseServer<Conn extends BaseConn, TSType extends Timestamp
     /* Must be Overridden */
     protected abstract void deliverEverythingPossible();
     protected abstract Conn createConn(Socket socket, BaseServer server);
-    protected abstract void addConnection(Socket socket, int userPort);
+    protected abstract Conn createConnObj(Socket socket, int userPort);
 
     /* CAN be Overridden */
     protected void optnlInitConnection(Conn conn) {/*nothing*/}
@@ -106,7 +106,10 @@ public abstract class BaseServer<Conn extends BaseConn, TSType extends Timestamp
             System.err.println(e.getMessage());
             return;
         }
-        addConnection(socket, userPort);
+        Conn conn = createConnObj(socket, userPort);
+        /* send over my "real name" so they really know me */
+        conn.println("id "+myId());
+        baseAddConnection(userPort, conn);
     }
 
 

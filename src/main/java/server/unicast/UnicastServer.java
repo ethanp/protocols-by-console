@@ -45,9 +45,8 @@ public class UnicastServer extends BaseServer<UnicastConn, MatrixClock> {
             System.out.println("All received messages have been delivered -- groovy");
     }
 
-    @Override protected void addConnection(Socket socket, int userPort) {
-        UnicastConn conn = UnicastConn.startWithSocket(socket, this, userPort);
-        baseAddConnection(userPort, conn);
+    @Override protected UnicastConn createConnObj(Socket socket, int userPort) {
+        return UnicastConn.startWithSocket(socket, this, userPort);
     }
 
     @Override protected void optnlInitConnection(UnicastConn conn) {

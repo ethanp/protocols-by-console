@@ -47,6 +47,8 @@ public abstract class BaseConn<Server extends BaseServer> implements Runnable {
                 if (cmd.startsWith("msg "))
                     receiveMessage(cmd);
 
+                else if (cmd.startsWith("id ")); // ignore
+
                 else
                     System.err.println("Received unrecognized command from ["+foreignID+"]\n"+cmd);
             }

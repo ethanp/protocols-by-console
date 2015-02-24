@@ -110,8 +110,12 @@ public abstract class BaseConsole<Server extends BaseServer> implements Runnable
 
         /* connect to specific port */
         else {
-            final int portNum = Integer.parseInt(portStr);
-            server.connectToServerAtPort(portNum);
+            try {
+                final int portNum = Integer.parseInt(portStr);
+                server.connectToServerAtPort(portNum);
+            } catch (NumberFormatException e) {
+                System.err.println(portStr+" is not a valid number");
+            }
         }
     }
 }

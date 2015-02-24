@@ -28,12 +28,8 @@ public class BrdcstServer extends BaseServer<BrdcstConn, VectorClock> {
         return BrdcstConn.startWithSocket(socket, (BrdcstServer) server);
     }
 
-    @Override protected void addConnection(Socket socket, int userPort) {
-        /* create the connection object */
-        BrdcstConn conn = BrdcstConn.startWithSocket(socket, this, userPort);
-        /* send over my "real name" so they really know me */
-        conn.println("id "+myId());
-        baseAddConnection(userPort, conn);
+    @Override protected BrdcstConn createConnObj(Socket socket, int userPort) {
+        return BrdcstConn.startWithSocket(socket, this, userPort);
     }
 
     @Override protected void deliverEverythingPossible() {
