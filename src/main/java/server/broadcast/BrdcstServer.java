@@ -20,7 +20,7 @@ import java.util.Map;
  *          &&
  * myVC[k] ≥ rcvdVC[k], forall k≠j
  */
-public class BrdcstServer extends BaseServer<BrdcstConn> {
+public class BrdcstServer extends BaseServer<BrdcstConn, VectorClock> {
 
     public BrdcstServer(ServerSocket socket) { super(socket); }
 
@@ -29,12 +29,9 @@ public class BrdcstServer extends BaseServer<BrdcstConn> {
     }
 
     @Override protected void addConnection(Socket socket, int userPort) {
-        BrdcstConn conn = BrdcstConn.startWithSocket(socket, this);
-        conn.println("id "+myId());
-        conn.setForeignID(userPort);
-        connections.put(userPort, conn);
-        getDeliveredClock().put(userPort, 0);
-        System.out.println("Connected to "+userPort);
+        /* create the connection object */
+        BrdcstConn conn = BrdcstConn.startWithSocket(socket, this, userPort);
+        baseAddConnection(userPort, conn);
     }
 
     @Override protected void deliverEverythingPossible() {
@@ -63,15 +60,11 @@ public class BrdcstServer extends BaseServer<BrdcstConn> {
         /* create message to broadcast */
         String msg = "msg "+serializedIncrementedVectorClock();
 
-        /* broadcast to everyone else */
+        /* broadcast to everyone */
         for (Map.Entry<Integer, BrdcstConn> entry : connections.entrySet()) {
             System.out.println("broadcasting to "+entry.getKey());
             entry.getValue().println(msg);
         }
-
-        /* also broadcast to self */
-        System.out.println("Received msg w VC "+getDeliveredClock()+" from ["+myId()+"]");
-        rcvMsg(getDeliveredClock(), myId());
     }
 
     /**

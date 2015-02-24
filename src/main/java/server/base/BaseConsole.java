@@ -64,6 +64,7 @@ public abstract class BaseConsole<Server extends BaseServer> implements Runnable
     }
 
     @Override public void run() {
+        executeConnect("connect "+server.myId());
         while (true) {
             String cmd = prompt();
             if (cmd.startsWith("connect ")) executeConnect(cmd);

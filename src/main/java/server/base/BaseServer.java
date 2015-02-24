@@ -1,5 +1,6 @@
 package server.base;
 
+import server.time.Timestamp;
 import server.time.VectorClock;
 import server.util.Common;
 
@@ -7,14 +8,14 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.NavigableMap;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Ethan Petuchowski 2/23/15
  */
-public abstract class BaseServer<Conn extends BaseConn> implements Runnable {
+public abstract class BaseServer<Conn extends BaseConn, TSType extends Timestamp> implements Runnable {
 
     public BaseServer(ServerSocket serverSocket) { this.serverSocket = serverSocket; }
 
@@ -23,12 +24,30 @@ public abstract class BaseServer<Conn extends BaseConn> implements Runnable {
     protected ConcurrentHashMap<Integer, Conn> connections = new ConcurrentHashMap<>(5,.9f,3);
     public int myId() { return serverSocket.getLocalPort()-Common.LOW_PORT; }
     protected VectorClock deliveredClock = new VectorClock();
-    protected NavigableMap<VectorClock, Integer> msgBacklog = new TreeMap<>();
+    protected SortedMap<TSType, Integer> msgBacklog = new TreeMap<>();
+
+    protected void baseAddConnection(int userPort, Conn conn) {
+
+        /* send over my "real name" so they really know me */
+        conn.println("id "+myId());
+
+        /* add to collection */
+        connections.put(userPort, conn);
+
+        /* put myself in the array of "delivered message counts by processor" */
+        getDeliveredClock().add(userPort);
+
+        /* inform the user it worked */
+        System.out.println("Connected to "+userPort);
+    }
 
     /* Must be Overridden */
     protected abstract void deliverEverythingPossible();
     protected abstract Conn createConn(Socket socket, BaseServer server);
     protected abstract void addConnection(Socket socket, int userPort);
+
+    /* CAN be Overridden */
+    protected void optnlInitConnection(Conn conn) {/*nothing*/}
 
     /* Must be Extended */
         /* NONE */
@@ -44,6 +63,7 @@ public abstract class BaseServer<Conn extends BaseConn> implements Runnable {
             conn.setForeignID(userPort);
             connections.put(userPort, conn);
             getDeliveredClock().put(userPort, 0);
+            optnlInitConnection(conn); // for Unicast this adds the peer to the matrix
             System.out.println("Connected to "+userPort);
         }
         catch (IOException e) { e.printStackTrace(); }
@@ -70,10 +90,6 @@ public abstract class BaseServer<Conn extends BaseConn> implements Runnable {
     }
 
     public void connectToServerAtPort(int userPort) {
-        if (userPort == myId()) {
-            System.out.println("surely I needn't connect to myself");
-            return;
-        }
         if (isConnectedTo(userPort)) {
             System.err.println("Already connected to "+userPort);
             return;
@@ -104,8 +120,8 @@ public abstract class BaseServer<Conn extends BaseConn> implements Runnable {
 
     public VectorClock getDeliveredClock() { return deliveredClock; }
 
-    public void rcvMsg(VectorClock vc, int procID) {
-        msgBacklog.put(vc, procID);
+    public void rcvMsg(TSType timestamp, int procID) {
+        msgBacklog.put(timestamp, procID);
         deliverEverythingPossible();
     }
 

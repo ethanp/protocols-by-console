@@ -53,21 +53,24 @@ public class VectorClock extends Timestamp {
             if (o.containsKey(procID)) {
                 if (entry.getValue() < o.get(procID)) {
                     if (isMore) return 0;
-                    isLess = true;
+                    else isLess = true;
                 }
                 else if (entry.getValue() > o.get(procID)) {
                     if (isLess) return 0;
-                    isMore = true;
+                    else isMore = true;
                 }
-            }
+            } else System.err.println("Your network is not fully connected. "+
+                                      "Results are undefined in this situation.");
         }
+
         return isLess ? -1
              : isMore ? 1
              : 0;
     }
 
     public void setServer(BaseServer server) { this.server = server; }
-
+    public boolean isGreaterThan(VectorClock vc) { return this.compareTo(vc) > 0; }
+    public boolean isLesserThan(VectorClock vc) { return this.compareTo(vc) < 0; }
     /* pass along map operations */
     public void     incr(int proc)      { map.put(proc, map.get(proc)+1); }
     public void     add(int id)         { map.put(id, 0); }

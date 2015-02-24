@@ -11,12 +11,12 @@ import java.net.Socket;
 /**
 * Ethan Petuchowski 2/22/15
 */
-public abstract class BaseConn implements Runnable {
+public abstract class BaseConn<Server extends BaseServer> implements Runnable {
 
     /* Fields */
     private BufferedReader reader;
     private PrintWriter writer;
-    protected final BaseServer baseServer;
+    protected final Server server;
     protected int foreignID = -1;
     private int delay = 0;
 
@@ -24,8 +24,8 @@ public abstract class BaseConn implements Runnable {
     protected abstract void receiveMessage(String cmd);
 
     /* Base Methods (not for overriding) */
-    public BaseConn(Socket socket, BaseServer baseServer) {
-        this.baseServer = baseServer;
+    public BaseConn(Socket socket, Server server) {
+        this.server = server;
         try {
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             writer = new PrintWriter(socket.getOutputStream());
@@ -40,7 +40,7 @@ public abstract class BaseConn implements Runnable {
 
                 if (cmd == null) {
                     System.out.println("Connection to ["+foreignID+"] closed");
-                    baseServer.removeConn(foreignID);
+                    server.removeConn(foreignID);
                     return;
                 }
 
@@ -84,6 +84,7 @@ public abstract class BaseConn implements Runnable {
     }
 
     public void println(String string)  { new Thread(new DelayPrinter(string)).start(); }
+    public int  getForeignID()          { return foreignID; }
     public void setForeignID(int i)     { foreignID = i; }
     public void setDelay(int delay)     { this.delay = delay; }
 }
