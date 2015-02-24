@@ -41,6 +41,7 @@ public abstract class BaseConsole<Server extends BaseServer> implements Runnable
                 System.exit(1);
             }
         }
+        Common.MY_PORT = ss.getLocalPort()-Common.LOW_PORT;
         return ss;
     }
 

@@ -11,4 +11,6 @@ public class Common {
     public static String afterSpace(String cmd) {
         return cmd.substring(cmd.indexOf(' ')+1, cmd.length());
     }
+
+    public static int MY_PORT = -1;
 }

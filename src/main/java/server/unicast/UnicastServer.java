@@ -2,10 +2,11 @@ package server.unicast;
 
 import server.base.BaseServer;
 import server.time.MatrixClock;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -19,13 +20,29 @@ public class UnicastServer extends BaseServer<UnicastConn, MatrixClock> {
     private MatrixClock myMtx = new MatrixClock();
 
     @Override protected void deliverEverythingPossible() {
-        /* iterate through msgBacklog */
-        /* "entrySet()'s _iterator_ returns the entries in ASCENDING KEY ORDER" */
+
+        Collection<MatrixClock> toRem = new ArrayList<>();
+
+        /* iterate through msgBacklog
+         *  NB: "entrySet()'s _iterator_ returns the entries in ASCENDING KEY ORDER" */
         for (Map.Entry<MatrixClock, Integer> entry : msgBacklog.entrySet()) {
-            /* TODO figures outs the ALGO-RHYTHM DAWG! */
+
+            final Integer sendingProcess = entry.getValue();
+            final MatrixClock sentMatrix = entry.getKey();
+            final int msgsDeliveredFromThisSender = deliveredClock.get(sendingProcess);
+
+            if (sentMatrix.get(sendingProcess, myId()) == msgsDeliveredFromThisSender + 1) {
+                if (sentMatrix.precede_ij() == deliveredClock.sum() + 1) {
+                    System.out.println("Delivered msg w mtx "+sentMatrix+" from ["+sendingProcess+"]");
+                    deliveredClock.incr(sendingProcess);
+                    myMtx.setVC(sendingProcess, sentMatrix.getVC(sendingProcess));
+                    toRem.add(sentMatrix);
+                }
+            }
         }
-        // TODO remove
-        throw new NotImplementedException();
+        toRem.forEach(msgBacklog::remove);
+        if (msgBacklog.isEmpty())
+            System.out.println("All received messages have been delivered -- groovy");
     }
 
     @Override protected void addConnection(Socket socket, int userPort) {

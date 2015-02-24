@@ -68,16 +68,19 @@ public class VectorClock extends Timestamp {
              : 0;
     }
 
-    public void setServer(BaseServer server) { this.server = server; }
+    public void    setServer(BaseServer server)  { this.server = server; }
+
+    /* simple helpers */
     public boolean isGreaterThan(VectorClock vc) { return this.compareTo(vc) > 0; }
-    public boolean isLesserThan(VectorClock vc) { return this.compareTo(vc) < 0; }
+    public boolean isLesserThan(VectorClock vc)  { return this.compareTo(vc) < 0; }
+    public void    incr(int proc)                { map.put(proc, map.get(proc)+1); }
+
     /* pass along map operations */
-    public void     incr(int proc)      { map.put(proc, map.get(proc)+1); }
     public void     add(int id)         { map.put(id, 0); }
     public boolean  containsKey(int a)  { return map.containsKey(a); }
-    public int      get(int a)          { return map.get(a); }
-    public void     put(int a, int b)   { map.put(a, b); }
-    public void     remove(int id)      { map.remove(id); }
+    public int      get(int port)       { return map.get(port); }
+    public void     put(int port, int count) { map.put(port, count); }
+    public void     remove(int portId)  { map.remove(portId); }
     public int      size()              { return map.size(); }
 
     public boolean shouldDeliver(VectorClock receivedVC, int procID) {
@@ -115,6 +118,10 @@ public class VectorClock extends Timestamp {
         for (Map.Entry<Integer, Integer> entry : entries)
             toRet.add(new Entry(entry.getKey(), entry.getValue()));
         return toRet;
+    }
+
+    public int sum() {
+        return map.values().stream().mapToInt(a -> a).sum();
     }
 
     class Entry implements Comparable<Entry> {

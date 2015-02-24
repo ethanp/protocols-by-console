@@ -31,6 +31,8 @@ public class BrdcstServer extends BaseServer<BrdcstConn, VectorClock> {
     @Override protected void addConnection(Socket socket, int userPort) {
         /* create the connection object */
         BrdcstConn conn = BrdcstConn.startWithSocket(socket, this, userPort);
+        /* send over my "real name" so they really know me */
+        conn.println("id "+myId());
         baseAddConnection(userPort, conn);
     }
 
@@ -47,9 +49,8 @@ public class BrdcstServer extends BaseServer<BrdcstConn, VectorClock> {
             }
         }
         toRem.forEach(msgBacklog::remove);
-        if (msgBacklog.size() == 0) {
+        if (msgBacklog.isEmpty())
             System.out.println("All received messages have been delivered -- groovy");
-        }
     }
 
     /**

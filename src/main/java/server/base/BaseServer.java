@@ -28,16 +28,16 @@ public abstract class BaseServer<Conn extends BaseConn, TSType extends Timestamp
 
     protected void baseAddConnection(int userPort, Conn conn) {
 
-        /* send over my "real name" so they really know me */
-        conn.println("id "+myId());
-
         /* add to collection */
         connections.put(userPort, conn);
 
         /* put myself in the array of "delivered message counts by processor" */
         getDeliveredClock().add(userPort);
 
-        /* inform the user it worked */
+        /* for Unicast this adds the peer to the matrix */
+        optnlInitConnection(conn);
+
+        /* tell the user that it worked */
         System.out.println("Connected to "+userPort);
     }
 
@@ -61,10 +61,7 @@ public abstract class BaseServer<Conn extends BaseConn, TSType extends Timestamp
             Conn conn = createConn(socket, this);
             int userPort = Integer.parseInt(Common.afterSpace(conn.readLine()));
             conn.setForeignID(userPort);
-            connections.put(userPort, conn);
-            getDeliveredClock().put(userPort, 0);
-            optnlInitConnection(conn); // for Unicast this adds the peer to the matrix
-            System.out.println("Connected to "+userPort);
+            baseAddConnection(userPort, conn);
         }
         catch (IOException e) { e.printStackTrace(); }
     }

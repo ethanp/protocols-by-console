@@ -22,7 +22,7 @@ public class UnicastConn extends BaseConn<UnicastServer> {
 
     @Override protected void receiveMessage(String cmd) {
         MatrixClock rcvdMtx = server.getMyMtx().deserialize(afterSpace(cmd));
-        System.out.println("Received msg w MTX\n\n"+rcvdMtx+"\n\nfrom ["+foreignID+"]");
+        System.out.println("Received msg w MTX"+rcvdMtx+"from ["+foreignID+"]");
         server.rcvMsg(rcvdMtx, foreignID);
     }
 
