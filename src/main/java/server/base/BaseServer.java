@@ -37,7 +37,12 @@ public abstract class BaseServer<Conn extends BaseConn, TSType extends Timestamp
         /* for Unicast this adds the peer to the matrix */
         optnlInitConnection(conn);
 
-        /* tell the user that it worked */
+        /* Tell the user that it worked.
+         *
+         * When connecting to self this gets printed twice:
+         *   - 1st for creating connection as client
+         *   - 2nd for receiving connection as server.
+         */
         System.out.println("Connected to "+userPort);
     }
 

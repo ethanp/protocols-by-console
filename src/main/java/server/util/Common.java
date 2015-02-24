@@ -13,4 +13,9 @@ public class Common {
     }
 
     public static int MY_PORT = -1;
+
+    public static String beforeSpace(String cmd) {
+        if (cmd.indexOf(' ') == -1) return cmd;
+        return cmd.substring(0, cmd.indexOf(' '));
+    }
 }

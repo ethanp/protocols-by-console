@@ -68,11 +68,13 @@ public abstract class BaseConsole<Server extends BaseServer> implements Runnable
         executeConnect("connect "+server.myId());
         while (true) {
             String cmd = prompt();
-            if (cmd.startsWith("connect ")) executeConnect(cmd);
-            else if (cmd.equals("broadcast")) executeBroadcast(cmd);
-            else if (cmd.startsWith("delay ")) executeDelay(cmd);
-            else if (cmd.startsWith("send ")) executeSend(cmd);
-            else System.err.println("Unrecognized command: "+cmd);
+            switch (Common.beforeSpace(cmd)) {
+                case "connect":     executeConnect(cmd);    break;
+                case "broadcast":   executeBroadcast(cmd);  break;
+                case "delay":       executeDelay(cmd);      break;
+                case "send":        executeSend(cmd);       break;
+                default:    System.err.println("Unrecognized command: "+cmd);
+            }
         }
     }
 
@@ -99,13 +101,19 @@ public abstract class BaseConsole<Server extends BaseServer> implements Runnable
 
     protected void executeConnect(String cmd) {
         String portStr = Common.afterSpace(cmd);
-                /* connect to range of ports */
+
+        /* connect to range of ports */
         if (cmd.indexOf('-') > -1) {
             final int dash = portStr.indexOf('-');
-            final int portMin = Integer.parseInt(portStr.substring(0, dash));
-            final int portMax = Integer.parseInt(portStr.substring(dash+1, portStr.length()));
-            for (int i = portMin; i <= portMax; i++)
-                server.connectToServerAtPort(i);
+            try {
+                final int portMin = Integer.parseInt(portStr.substring(0, dash));
+                final int portMax = Integer.parseInt(portStr.substring(dash+1, portStr.length()));
+                for (int i = portMin; i <= portMax; i++)
+                    server.connectToServerAtPort(i);
+            } catch (NumberFormatException e) {
+                System.err.println("Invalid number in range");
+                System.err.println(e.getMessage());
+            }
         }
 
         /* connect to specific port */

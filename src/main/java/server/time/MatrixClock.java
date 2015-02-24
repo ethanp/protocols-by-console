@@ -114,7 +114,7 @@ public class MatrixClock extends Timestamp {
         return rcvdMtx;
     }
 
-    @Override public String toString()                  { return "\n{\n"+serialize()+"\n}\n"; }
+    @Override public String toString() { return "\n{\n"+serialize().replaceAll("\\|","\n")+"}\n"; }
     @Override public boolean containsKey(int procID)    { return mtx.containsKey(procID); }
     public void incr(int from, int to)                  { mtx.get(from).incr(to); }
     public void setVC(Integer port, VectorClock vc)     { mtx.put(port, vc); }
