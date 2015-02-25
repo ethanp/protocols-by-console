@@ -14,6 +14,8 @@ import java.util.TreeSet;
  */
 public class VectorClock extends Timestamp {
 
+    public VectorClock(int senderID) { super(senderID); }
+
     /** Map<ProcID, Causal-Count>*/
     NavigableMap<Integer, Integer> map = new TreeMap<>();
     private BaseServer server;
@@ -29,8 +31,8 @@ public class VectorClock extends Timestamp {
         return sb.toString();
     }
 
-    public static VectorClock deserialize(String s) {
-        VectorClock n = new VectorClock();
+    public static VectorClock deserialize(String s, int senderID) {
+        VectorClock n = new VectorClock(senderID);
         String[] items = s.split(",");
         for (String t : items) {
             String[] p = t.split(":");
@@ -83,26 +85,35 @@ public class VectorClock extends Timestamp {
     public void     remove(int portId)  { map.remove(portId); }
     public int      size()              { return map.size(); }
 
-    public boolean shouldDeliver(VectorClock receivedVC, int procID) {
+    /**
+     * This is only ever called ON the deliveredClock belonging to the BroadcastServer
+     */
+    public synchronized boolean shouldDeliver(VectorClock receivedVC, int senderID) {
         if (receivedVC.size() != this.size()) {
             System.err.println("Can't deliver, network is not completely connected");
+            return false;
         }
-        for (Entry e : receivedVC.entrySet()) {
-            if (!this.containsKey(e.procID)) {
+        for (Entry vcSlot : receivedVC.entrySet()) {
+            if (!this.containsKey(vcSlot.procID)) {
                 System.err.println("Can't deliver, network is not completely connected");
+                return false;
             }
-            final int myCount = this.get(e.procID);
-            if (e.procID == procID) {
-                if (procID == server.myId()) {
-                    if (myCount != e.count) {
+
+            final int numDlvrdSoFarForThisProc = this.get(vcSlot.procID);
+            if (vcSlot.procID == senderID) {
+                if (senderID == server.myId()) {
+                    if (numDlvrdSoFarForThisProc != vcSlot.count) {
+                        System.out.println("a"+vcSlot.procID);
                         return false;
                     }
                 }
-                else if (myCount != e.count-1) {
+                else if (numDlvrdSoFarForThisProc < vcSlot.count-1) {
+                    System.out.println("b"+vcSlot.procID);
                     return false;
                 }
             }
-            else if (myCount < e.count) {
+            else if (numDlvrdSoFarForThisProc < vcSlot.count) {
+                System.out.println("c"+vcSlot.procID);
                 return false;
             }
         }

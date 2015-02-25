@@ -14,8 +14,14 @@ import java.util.TreeSet;
  */
 public class MatrixClock extends Timestamp {
 
-    public MatrixClock() {}
-    public MatrixClock(Collection<Integer> ports) { reinitMtx(ports); }
+    public MatrixClock(int senderID) {
+        super(senderID);
+    }
+
+    public MatrixClock(Collection<Integer> ports, int senderID) {
+        super(senderID);
+        reinitMtx(ports);
+    }
 
     /* TODO this will have problems if it is actually manipulated concurrently */
     /* I could most easily resolve this by SYNCHRONIZing all the methods */
@@ -30,7 +36,7 @@ public class MatrixClock extends Timestamp {
     private void reinitMtx(Collection<Integer> s) {
         mtx = new TreeMap<>();
         for (int i : s) {
-            final VectorClock vc = new VectorClock();
+            final VectorClock vc = new VectorClock(senderID);
             for (int j : s) vc.add(j);
             mtx.put(i, vc);
         }
@@ -42,45 +48,6 @@ public class MatrixClock extends Timestamp {
             sb.append(vc.serialize()+"|");
         return sb.toString();
     }
-
-    /**
-     * @return a negative integer, zero, or a positive integer as this object is less than, equal
-     * to, or greater than the specified object.
-     *
-     * For my purposes, maybe this thing is Greater Than iff :
-     *
-     *      forall VC, thisVC ≥ thatVC
-     *      and thisVC ≠ thatVC
-     *
-     *   which is similar to the normal VectorClock comparison operator
-     */
-/*    @Override public int compareTo(Timestamp o) {
-        final MatrixClock that = (MatrixClock) o;
-
-        Iterator<VectorClock> these = mtx.values().iterator();
-        Iterator<VectorClock> those = that.mtx.values().iterator();
-
-        int LESS = -1, MORE = 1, EVEN = 0;
-        boolean isMore = false;
-        boolean isLess = false;
-
-        while (these.hasNext()) {
-            final VectorClock mine = these.next();
-            final VectorClock theirs = those.next();
-            if (mine.isGreaterThan(theirs)) {
-                if (isLess) return EVEN;
-                else isMore = true;
-            }
-            else if (mine.isLesserThan(theirs)) {
-                if (isMore) return EVEN;
-                else isLess = true;
-            }
-        }
-
-        return isLess ? LESS
-             : isMore ? MORE
-             : EVEN;
-    }*/
 
     /**
      * @return a negative integer, zero, or a positive integer as this object is less than, equal
@@ -101,13 +68,13 @@ public class MatrixClock extends Timestamp {
         return mtx.values().stream().mapToInt(vc -> vc.get(Common.MY_PORT)).sum();
     }
 
-    public MatrixClock deserialize(String s) {
+    public MatrixClock deserialize(String s, int senderID) {
         String[] vectorClocks = s.split("\\|");
         final Set<Integer> ports = mtx.keySet();
         Iterator<Integer> portsIt = ports.iterator(); // this WILL be sorted (so say the docs)
-        MatrixClock rcvdMtx = new MatrixClock(ports);
+        MatrixClock rcvdMtx = new MatrixClock(ports, senderID);
         for (String vectorClock : vectorClocks) {
-            VectorClock vc = VectorClock.deserialize(vectorClock);
+            VectorClock vc = VectorClock.deserialize(vectorClock, senderID);
             final Integer port = portsIt.next();
             rcvdMtx.setVC(port, vc);
         }

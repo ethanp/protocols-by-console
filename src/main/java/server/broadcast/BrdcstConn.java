@@ -21,9 +21,9 @@ public class BrdcstConn extends BaseConn {
     }
 
     @Override protected void receiveMessage(String cmd) {
-        VectorClock rcvdVC = VectorClock.deserialize(afterSpace(cmd));
+        VectorClock rcvdVC = VectorClock.deserialize(afterSpace(cmd), foreignID);
         System.out.println("Received msg w VC "+rcvdVC+" from ["+foreignID+"]");
-        server.rcvMsg(rcvdVC, foreignID);
+        server.rcvMsg(rcvdVC);
     }
 
     public static BrdcstConn startWithSocket(Socket socket, BrdcstServer server, int portID) {

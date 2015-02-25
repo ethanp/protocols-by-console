@@ -8,8 +8,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -17,14 +16,17 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public abstract class BaseServer<Conn extends BaseConn, TSType extends Timestamp> implements Runnable {
 
-    public BaseServer(ServerSocket serverSocket) { this.serverSocket = serverSocket; }
+    public BaseServer(ServerSocket serverSocket) {
+        this.serverSocket = serverSocket;
+        deliveredClock = new VectorClock(myId());
+    }
 
     /* Fields */
     protected ServerSocket serverSocket;
     protected ConcurrentHashMap<Integer, Conn> connections = new ConcurrentHashMap<>(5,.9f,3);
     public int myId() { return serverSocket.getLocalPort()-Common.LOW_PORT; }
-    protected VectorClock deliveredClock = new VectorClock();
-    protected SortedMap<TSType, Integer> msgBacklog = new TreeMap<>();
+    protected final VectorClock deliveredClock;
+    protected PriorityQueue<TSType> msgBacklog = new PriorityQueue<>();
 
     protected void baseAddConnection(int userPort, Conn conn) {
 
@@ -125,8 +127,10 @@ public abstract class BaseServer<Conn extends BaseConn, TSType extends Timestamp
 
     public VectorClock getDeliveredClock() { return deliveredClock; }
 
-    public void rcvMsg(TSType timestamp, int procID) {
-        msgBacklog.put(timestamp, procID);
+    public synchronized void rcvMsg(TSType timestamp) {
+        System.out.println(msgBacklog.hashCode());
+        msgBacklog.add(timestamp); // throws Exception if doesn't work, unlike offer()
+        System.out.println("msgBacklog.size(): "+msgBacklog.size());
         deliverEverythingPossible();
     }
 

@@ -34,14 +34,15 @@ public class BrdcstServer extends BaseServer<BrdcstConn, VectorClock> {
 
     @Override protected void deliverEverythingPossible() {
         Collection<VectorClock> toRem = new ArrayList<>();
-        for (Map.Entry<VectorClock, Integer> entry : msgBacklog.entrySet()) {
-            VectorClock qVC = entry.getKey();
-            final int procID = entry.getValue();
-            if (deliveredClock.shouldDeliver(qVC, procID)) {
-                final int msgNum = qVC.get(procID);
+        for (VectorClock qVC : msgBacklog) {
+            final int senderID = qVC.getSenderID();
+            System.out.println("Trying to deliver: "+qVC);
+            System.out.println("Current D = "+deliveredClock);
+            if (deliveredClock.shouldDeliver(qVC, senderID)) {
+                final int msgNum = qVC.get(senderID);
                 toRem.add(qVC);
-                System.out.println("Delivered msg w VC "+qVC+" from ["+procID+"]");
-                getDeliveredClock().put(procID, msgNum);
+                System.out.println("Delivered msg w VC "+qVC+" from ["+senderID+"]");
+                getDeliveredClock().put(senderID, msgNum);
             }
         }
         toRem.forEach(msgBacklog::remove);

@@ -7,7 +7,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Map;
 
 /**
  * Ethan Petuchowski 2/23/15
@@ -15,9 +14,10 @@ import java.util.Map;
 public class UnicastServer extends BaseServer<UnicastConn, MatrixClock> {
     public UnicastServer(ServerSocket serverSocket) {
         super(serverSocket);
+        myMtx = new MatrixClock(myId());
     }
 
-    private MatrixClock myMtx = new MatrixClock();
+    private final MatrixClock myMtx;
 
     @Override protected void deliverEverythingPossible() {
 
@@ -25,10 +25,8 @@ public class UnicastServer extends BaseServer<UnicastConn, MatrixClock> {
 
         /* iterate through msgBacklog
          *  NB: "entrySet()'s _iterator_ returns the entries in ASCENDING KEY ORDER" */
-        for (Map.Entry<MatrixClock, Integer> entry : msgBacklog.entrySet()) {
-
-            final Integer sendingProcess = entry.getValue();
-            final MatrixClock sentMatrix = entry.getKey();
+        for (MatrixClock sentMatrix : msgBacklog) {
+            final Integer sendingProcess = sentMatrix.getSenderID();
             final int msgsDeliveredFromThisSender = deliveredClock.get(sendingProcess);
 
             if (sentMatrix.get(sendingProcess, myId()) == msgsDeliveredFromThisSender + 1) {
@@ -76,9 +74,5 @@ public class UnicastServer extends BaseServer<UnicastConn, MatrixClock> {
 
     public MatrixClock getMyMtx() {
         return myMtx;
-    }
-
-    public void setMyMtx(MatrixClock myMtx) {
-        this.myMtx = myMtx;
     }
 }

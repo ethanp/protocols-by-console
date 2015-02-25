@@ -88,6 +88,10 @@ public abstract class BaseConsole<Server extends BaseServer> implements Runnable
 
     protected void executeDelay(String cmd) {
         String[] ss = cmd.split(" ");
+        if (ss.length != 3) {
+            System.err.println("Incorrect format, use `delay <from> <to>`");
+            return;
+        }
         final int peerNum = Integer.parseInt(ss[1]);
         final int delaySize = Integer.parseInt(ss[2]);
 
