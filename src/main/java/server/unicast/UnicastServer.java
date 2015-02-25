@@ -30,7 +30,7 @@ public class UnicastServer extends BaseServer<UnicastConn, MatrixClock> {
             final int msgsDeliveredFromThisSender = deliveredClock.get(sendingProcess);
 
             if (sentMatrix.get(sendingProcess, myId()) == msgsDeliveredFromThisSender + 1) {
-                if (sentMatrix.precede_ij() == deliveredClock.sum() + 1) {
+                if (sentMatrix.precede_ij() <= deliveredClock.sum() + 1) {
                     System.out.println("Delivered msg w mtx "+sentMatrix+" from ["+sendingProcess+"]");
                     deliveredClock.incr(sendingProcess);
                     myMtx.setVC(sendingProcess, sentMatrix.getVC(sendingProcess));

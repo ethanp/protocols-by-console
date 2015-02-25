@@ -128,7 +128,6 @@ public abstract class BaseServer<Conn extends BaseConn, TSType extends Timestamp
     public VectorClock getDeliveredClock() { return deliveredClock; }
 
     public synchronized void rcvMsg(TSType timestamp) {
-        System.out.println(msgBacklog.hashCode());
         msgBacklog.add(timestamp); // throws Exception if doesn't work, unlike offer()
         System.out.println("msgBacklog.size(): "+msgBacklog.size());
         deliverEverythingPossible();

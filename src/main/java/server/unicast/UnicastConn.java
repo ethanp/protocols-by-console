@@ -23,6 +23,8 @@ public class UnicastConn extends BaseConn<UnicastServer> {
     @Override protected void receiveMessage(String cmd) {
         MatrixClock rcvdMtx = server.getMyMtx().deserialize(afterSpace(cmd), foreignID);
         System.out.println("Received msg w MTX"+rcvdMtx+"from ["+foreignID+"]");
+        System.out.println("D = "+server.getDeliveredClock());
+        System.out.println("S = "+server.getMyMtx());
         server.rcvMsg(rcvdMtx);
     }
 

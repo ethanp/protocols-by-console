@@ -96,7 +96,7 @@ public abstract class BaseConsole<Server extends BaseServer> implements Runnable
         final int delaySize = Integer.parseInt(ss[2]);
 
         if (server.setDelay(peerNum, delaySize)) {
-            System.out.println("added delay of "+delaySize+" seconds to server "+peerNum);
+            System.out.println("set delay of "+delaySize+" seconds on msgs to server "+peerNum);
         }
         else {
             System.out.println("no delay added");
