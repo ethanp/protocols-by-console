@@ -34,18 +34,23 @@ public class BrdcstServer extends BaseServer<BrdcstConn, VectorClock> {
 
     @Override protected void deliverEverythingPossible() {
         Collection<VectorClock> toRem = new ArrayList<>();
-        for (VectorClock qVC : msgBacklog) {
-            final int senderID = qVC.getSenderID();
-            System.out.println("Trying to deliver: "+qVC);
-            System.out.println("Current D = "+deliveredClock);
-            if (deliveredClock.shouldDeliver(qVC, senderID)) {
-                final int msgNum = qVC.get(senderID);
-                toRem.add(qVC);
-                System.out.println("Delivered msg w VC "+qVC+" from ["+senderID+"]");
-                getDeliveredClock().put(senderID, msgNum);
+        boolean didSomething;
+        do {
+            didSomething = false;
+            for (VectorClock qVC : msgBacklog) {
+                final int senderID = qVC.getSenderID();
+                System.out.println("Trying to deliver: "+qVC);
+                System.out.println("Current D = "+deliveredClock);
+                if (deliveredClock.shouldDeliver(qVC, senderID)) {
+                    final int msgNum = qVC.get(senderID);
+                    toRem.add(qVC);
+                    System.out.println("Delivered msg w VC "+qVC+" from ["+senderID+"]");
+                    getDeliveredClock().put(senderID, msgNum);
+                    didSomething = true;
+                }
             }
-        }
-        toRem.forEach(msgBacklog::remove);
+            toRem.forEach(msgBacklog::remove);
+        } while (didSomething);
         if (msgBacklog.isEmpty())
             System.out.println("All received messages have been delivered -- groovy");
     }

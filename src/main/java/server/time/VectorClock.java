@@ -2,12 +2,15 @@ package server.time;
 
 import server.base.BaseServer;
 
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.NavigableSet;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 /**
  * Ethan Petuchowski 2/22/15
@@ -76,6 +79,8 @@ public class VectorClock extends Timestamp {
     public boolean isGreaterThan(VectorClock vc) { return this.compareTo(vc) > 0; }
     public boolean isLesserThan(VectorClock vc)  { return this.compareTo(vc) < 0; }
     public void    incr(int proc)                { map.put(proc, map.get(proc)+1); }
+    public int     sum()                    { return map.values().stream().mapToInt(a -> a).sum(); }
+    public List<Integer> asList()     { return map.values().stream().collect(Collectors.toList()); }
 
     /* pass along map operations */
     public void     add(int id)         { map.put(id, 0); }
@@ -131,8 +136,11 @@ public class VectorClock extends Timestamp {
         return toRet;
     }
 
-    public int sum() {
-        return map.values().stream().mapToInt(a -> a).sum();
+    public int indexOf(int procID) {
+        Iterator<Integer> it = map.keySet().iterator();
+        int idx = 0;
+        while (it.next() != procID) idx++;
+        return idx;
     }
 
     class Entry implements Comparable<Entry> {

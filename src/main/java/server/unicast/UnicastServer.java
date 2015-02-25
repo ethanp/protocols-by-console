@@ -7,6 +7,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Ethan Petuchowski 2/23/15
@@ -25,20 +26,40 @@ public class UnicastServer extends BaseServer<UnicastConn, MatrixClock> {
 
         /* iterate through msgBacklog
          *  NB: "entrySet()'s _iterator_ returns the entries in ASCENDING KEY ORDER" */
-        for (MatrixClock sentMatrix : msgBacklog) {
-            final Integer sendingProcess = sentMatrix.getSenderID();
-            final int msgsDeliveredFromThisSender = deliveredClock.get(sendingProcess);
+        boolean didSomething;
+        do {
+            didSomething = false;
+            for (MatrixClock sentMatrix : msgBacklog) {
 
-            if (sentMatrix.get(sendingProcess, myId()) == msgsDeliveredFromThisSender + 1) {
-                if (sentMatrix.precede_ij() <= deliveredClock.sum() + 1) {
-                    System.out.println("Delivered msg w mtx "+sentMatrix+" from ["+sendingProcess+"]");
-                    deliveredClock.incr(sendingProcess);
-                    myMtx.setVC(sendingProcess, sentMatrix.getVC(sendingProcess));
-                    toRem.add(sentMatrix);
+                final Integer sendingProcID = sentMatrix.getSenderID();
+                final int senderProcIdx = deliveredClock.indexOf(sendingProcID);
+
+                final int msgsSentFromSender = sentMatrix.get(sendingProcID, myId());
+                final int msgsDlvrdFromSender = deliveredClock.get(sendingProcID);
+                final boolean isNextMsgFromSender = msgsSentFromSender == msgsDlvrdFromSender+1;
+
+                if (isNextMsgFromSender) {
+                    boolean hasDlvrdAllPrecedingMsgs = true;
+                    List<Integer> theirSide = sentMatrix.getColForID(myId());
+                    List<Integer> mySide = deliveredClock.asList();
+                    for (int i = 0; i < theirSide.size(); i++) {
+                        if (i == senderProcIdx) continue;
+                        if (theirSide.get(i) > mySide.get(i)) {
+                            hasDlvrdAllPrecedingMsgs = false;
+                            break;
+                        }
+                    }
+                    if (hasDlvrdAllPrecedingMsgs) {
+                        System.out.println("Delivered msg w mtx "+sentMatrix+" from ["+sendingProcID+"]");
+                        deliveredClock.incr(sendingProcID);
+                        myMtx.setVC(sendingProcID, sentMatrix.getVC(sendingProcID));
+                        toRem.add(sentMatrix);
+                        didSomething = true;
+                    }
                 }
             }
-        }
-        toRem.forEach(msgBacklog::remove);
+            toRem.forEach(msgBacklog::remove);
+        } while (didSomething);
         if (msgBacklog.isEmpty())
             System.out.println("All received messages have been delivered -- groovy");
     }

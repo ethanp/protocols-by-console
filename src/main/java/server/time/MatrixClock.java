@@ -2,8 +2,10 @@ package server.time;
 
 import server.util.Common;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -87,4 +89,11 @@ public class MatrixClock extends Timestamp {
     public void setVC(Integer port, VectorClock vc)     { mtx.put(port, vc); }
     public VectorClock getVC(int port)                  { return mtx.get(port); }
     public int get(int i, int j)                        { return mtx.get(i).get(j); }
+
+    public List<Integer> getColForID(int procID) {
+        List<Integer> vals = new ArrayList<>();
+        for (VectorClock vc : mtx.values())
+            vals.add(vc.get(procID));
+        return vals;
+    }
 }
